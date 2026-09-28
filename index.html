@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Sketch Aquarium - Free Draw</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background: #e2e8f0;
+      color: #1e293b;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12px;
+      touch-action: none;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    header h2 { font-size: 1.15rem; color: #0284c7; }
+    header p { font-size: 0.8rem; color: #64748b; }
+
+    /* Area Kertas Gambar */
+    .paper-wrapper {
+      position: relative;
+      width: 320px;
+      height: 240px;
+      background: #ffffff;
+      border: 2px dashed #94a3b8;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+      margin-bottom: 8px;
+    }
+
+    #drawCanvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 10px;
+      display: block;
+      cursor: crosshair;
+    }
+
+    /* Toolbar Alat */
+    .tools-panel {
+      width: 320px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      gap: 6px;
+    }
+
+    .btn-tool {
+      flex: 1;
+      padding: 8px 4px;
+      background: #ffffff;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #334155;
+      cursor: pointer;
+    }
+    .btn-tool.active {
+      background: #0284c7;
+      color: #ffffff;
+      border-color: #0284c7;
+    }
+
+    /* Pengaturan Ukuran Kuas & Penghapus */
+    .size-panel {
+      width: 320px;
+      background: #ffffff;
+      padding: 6px 14px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .size-panel label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #475569;
+      white-space: nowrap;
+    }
+    .size-panel input[type="range"] {
+      flex: 1;
+      accent-color: #0284c7;
+      cursor: pointer;
+    }
+    .size-preview-dot {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .size-preview-dot span {
+      display: block;
+      background: #0284c7;
+      border-radius: 50%;
+      transition: width 0.1s ease, height 0.1s ease;
+    }
+
+    /* Palet Warna */
+    .palette-box {
+      width: 320px;
+      background: #ffffff;
+      padding: 8px 10px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .color-swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 1px #cbd5e1;
+      cursor: pointer;
+    }
+    .color-swatch.active {
+      transform: scale(1.2);
+      box-shadow: 0 0 0 2.5px #0284c7;
+    }
+
+    /* Form Bawah */
+    .action-panel {
+      width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    input.input-name {
+      width: 100%;
+      padding: 10px;
+      background: #ffffff;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      text-align: center;
+      font-weight: 600;
+      color: #1e293b;
+      outline: none;
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 12px;
+      background: #0284c7;
+      color: #ffffff;
+      border: none;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(2, 132, 199, 0.3);
+    }
+
+    /* Gamepad */
+    .hidden { display: none !important; }
+    .card-gamepad {
+      background: #ffffff;
+      border-radius: 16px;
+      width: 320px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      margin-top: 20px;
+    }
+    .dpad-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 75px);
+      grid-template-rows: repeat(3, 75px);
+      gap: 10px;
+      margin: 20px 0;
+    }
+    .btn-dpad {
+      background: #f1f5f9;
+      border: 2px solid #0284c7;
+      color: #0284c7;
+      font-size: 1.6rem;
+      font-weight: bold;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 0 #cbd5e1;
+    }
+    .btn-dpad:active {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #cbd5e1;
+      background: #0284c7;
+      color: #fff;
+    }
+    #btn-up    { grid-column: 2; grid-row: 1; }
+    #btn-left  { grid-column: 1; grid-row: 2; }
+    #btn-right { grid-column: 3; grid-row: 2; }
+    #btn-down  { grid-column: 2; grid-row: 3; }
+  </style>
+</head>
+<body>
+
+  <!-- ================= FASE 1: DRAWING BOARD ================= -->
+  <div id="draw-view" style="display: flex; flex-direction: column; align-items: center;">
+    <header>
+      <h2>Kertas Gambar Akuarium</h2>
+      <p>Gambar makhluk lautmu sesuka hati!</p>
+    </header>
+
+    <!-- Toolbar Mode -->
+    <div class="tools-panel">
+      <button class="btn-tool active" id="btn-brush" onclick="setMode('brush', this)">✏️ Kuas</button>
+      <button class="btn-tool" id="btn-eraser" onclick="setMode('eraser', this)">🧹 Penghapus</button>
+      <button class="btn-tool" onclick="clearCanvas()">🗑️ Bersihkan</button>
+    </div>
+
+    <!-- Pengaturan Ukuran (Besar / Kecil) -->
+    <div class="size-panel">
+      <label id="size-label">Ukuran Kuas:</label>
+      <input type="range" id="size-slider" min="2" max="36" value="6" oninput="updateSize(this.value)">
+      <div class="size-preview-dot">
+        <span id="preview-dot" style="width: 6px; height: 6px;"></span>
+      </div>
+    </div>
+
+    <!-- Kertas Gambar Putih -->
+    <div class="paper-wrapper">
+      <canvas id="drawCanvas" width="320" height="240"></canvas>
+    </div>
+
+    <!-- Palet Warna -->
+    <div class="palette-box">
+      <div class="color-swatch active" style="background: #000000;" onclick="selectColor('#000000', this)"></div>
+      <div class="color-swatch" style="background: #EF4444;" onclick="selectColor('#EF4444', this)"></div>
+      <div class="color-swatch" style="background: #F97316;" onclick="selectColor('#F97316', this)"></div>
+      <div class="color-swatch" style="background: #EAB308;" onclick="selectColor('#EAB308', this)"></div>
+      <div class="color-swatch" style="background: #22C55E;" onclick="selectColor('#22C55E', this)"></div>
+      <div class="color-swatch" style="background: #06B6D4;" onclick="selectColor('#06B6D4', this)"></div>
+      <div class="color-swatch" style="background: #3B82F6;" onclick="selectColor('#3B82F6', this)"></div>
+      <div class="color-swatch" style="background: #A855F7;" onclick="selectColor('#A855F7', this)"></div>
+    </div>
+
+    <!-- Panel Simpan -->
+    <div class="action-panel">
+      <input type="text" id="player-name" class="input-name" placeholder="Ketik Namamu..." maxlength="10">
+      <button class="btn-submit" onclick="submitDrawing()">🚀 Luncurkan ke Videotron</button>
+    </div>
+  </div>
+
+  <!-- ================= FASE 2: GAMEPAD PENGENDALI ================= -->
+  <div id="gamepad-view" class="card-gamepad hidden">
+    <h3 id="gamepad-title" style="color: #0284c7; margin-bottom: 4px;">Makhluk Laut Saya</h3>
+    <p style="font-size: 0.82rem; color: #64748b; margin-bottom: 12px;">Gunakan tombol untuk mengarahkan renangmu!</p>
+
+    <div class="dpad-grid">
+      <button class="btn-dpad" id="btn-up">▲</button>
+      <button class="btn-dpad" id="btn-left">◀</button>
+      <button class="btn-dpad" id="btn-right">▶</button>
+      <button class="btn-dpad" id="btn-down">▼</button>
+    </div>
+  </div>
+
+  <script>
+    // 1. SETUP CANVAS & TOOL STATE
+    const canvas = document.getElementById('drawCanvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    let isDrawing = false;
+    let currentColor = '#000000';
+    let currentMode = 'brush'; // 'brush' | 'eraser'
+    
+    // Ukuran terpisah untuk Kuas dan Penghapus
+    let brushSize = 6;
+    let eraserSize = 16;
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    const sizeSlider = document.getElementById('size-slider');
+    const sizeLabel = document.getElementById('size-label');
+    const previewDot = document.getElementById('preview-dot');
+
+    function updateSize(val) {
+      const size = parseInt(val, 10);
+      if (currentMode === 'brush') {
+        brushSize = size;
+      } else {
+        eraserSize = size;
+      }
+      previewDot.style.width = Math.min(24, size) + 'px';
+      previewDot.style.height = Math.min(24, size) + 'px';
+    }
+
+    function setMode(mode, btnEl) {
+      currentMode = mode;
+      document.querySelectorAll('.btn-tool').forEach(b => b.classList.remove('active'));
+      btnEl.classList.add('active');
+
+      if (mode === 'brush') {
+        sizeLabel.textContent = 'Ukuran Kuas:';
+        sizeSlider.value = brushSize;
+        previewDot.style.background = currentColor;
+        updateSize(brushSize);
+      } else {
+        sizeLabel.textContent = 'Ukuran Penghapus:';
+        sizeSlider.value = eraserSize;
+        previewDot.style.background = '#94a3b8';
+        updateSize(eraserSize);
+      }
+    }
+
+    function selectColor(hex, el) {
+      currentColor = hex;
+      document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+      el.classList.add('active');
+
+      // Otomatis pindah ke mode Kuas jika user klik warna
+      setMode('brush', document.getElementById('btn-brush'));
+    }
+
+    function clearCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // 2. EVENT DRAWING
+    function getCanvasCoordinates(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return {
+        x: (clientX - rect.left) * (canvas.width / rect.width),
+        y: (clientY - rect.top) * (canvas.height / rect.height)
+      };
+    }
+
+    function startDraw(e) {
+      isDrawing = true;
+      const pos = getCanvasCoordinates(e);
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+      draw(e);
+    }
+
+    function draw(e) {
+      if (!isDrawing) return;
+      const pos = getCanvasCoordinates(e);
+
+      if (currentMode === 'eraser') {
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.lineWidth = eraserSize;
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = currentColor;
+        ctx.lineWidth = brushSize;
+      }
+
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+    }
+
+    function stopDraw() {
+      if (!isDrawing) return;
+      isDrawing = false;
+      ctx.closePath();
+    }
+
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDraw(e); }, { passive: false });
+    canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); }, { passive: false });
+    canvas.addEventListener('touchend', stopDraw);
+
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDraw);
+    canvas.addEventListener('mouseleave', stopDraw);
+
+    // Inisialisasi tampilan dot preview
+    updateSize(brushSize);
+
+    // 3. SIGNALR CLIENT
+    const connection = new signalR.HubConnectionBuilder()
+      .withUrl("/hubs/aquarium", {
+        headers: { "ngrok-skip-browser-warning": "true" }
+      })
+      .withAutomaticReconnect()
+      .build();
+
+    connection.start().catch(err => console.error("Koneksi gagal:", err));
+
+    // 4. SUBMIT GAMBAR KE VIDEOTRON
+    async function submitDrawing() {
+      const nameInput = document.getElementById("player-name");
+      const name = nameInput.value.trim() || "Pemain";
+
+      const imageBase64 = canvas.toDataURL("image/png");
+
+      const payload = {
+        playerName: name,
+        imageBase64: imageBase64
+      };
+
+      try {
+        if (connection.state === signalR.HubConnectionState.Connected) {
+          await connection.invoke("SpawnCustomDrawing", payload);
+        }
+
+        document.getElementById("draw-view").classList.add("hidden");
+        document.getElementById("gamepad-view").classList.remove("hidden");
+        document.getElementById("gamepad-title").textContent = `Makhluk: ${name}`;
+      } catch (err) {
+        alert("Gagal mengirim ke videotron: " + err);
+      }
+    }
+
+    // 5. KONTROL GERAKAN (D-PAD)
+    function setupDpad(btnId, dx, dy) {
+      const btn = document.getElementById(btnId);
+      let timer = null;
+
+      const send = () => {
+        if (connection.state === signalR.HubConnectionState.Connected) {
+          connection.invoke("MoveCreature", dx, dy).catch(e => console.warn(e));
+        }
+      };
+
+      const start = (e) => {
+        e.preventDefault();
+        send();
+        timer = setInterval(send, 50);
+      };
+
+      const stop = () => {
+        if (timer) { clearInterval(timer); timer = null; }
+      };
+
+      btn.addEventListener("touchstart", start, { passive: false });
+      btn.addEventListener("touchend", stop);
+      btn.addEventListener("mousedown", start);
+      btn.addEventListener("mouseup", stop);
+      btn.addEventListener("mouseleave", stop);
+    }
+
+    setupDpad("btn-up", 0, -1);
+    setupDpad("btn-down", 0, 1);
+    setupDpad("btn-left", -1, 0);
+    setupDpad("btn-right", 1, 0);
+  </script>
+</body>
+</html>
